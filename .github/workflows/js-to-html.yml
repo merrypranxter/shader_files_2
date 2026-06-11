@@ -1,0 +1,79 @@
+name: JS to HTML auto-convert
+
+on:
+  push:
+    paths:
+      - '*.js'
+      - '**/*.js'
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect newly added JS files
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          if [[ "$BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+            git ls-tree --name-only -r "$AFTER" -- '*.js' > changed_js.txt
+          else
+            git diff --name-status "$BEFORE" "$AFTER" -- '*.js' | awk '$1=="A"{print $2}' > changed_js.txt
+          fi
+
+          grep -vE '^\.github/|^workflow/' changed_js.txt > filtered_js.txt || true
+          mv filtered_js.txt changed_js.txt
+
+          if [[ -s changed_js.txt ]]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "New JS files:"
+            cat changed_js.txt
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No new JS files found."
+          fi
+
+      - name: Convert JS files to HTML
+        if: steps.changed.outputs.has_changes == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r jsfile; do
+            [[ -z "$jsfile" ]] && continue
+            [[ -f "$jsfile" ]] || continue
+            echo "Converting $jsfile"
+            python3 .github/scripts/convert_js_to_html.py "$jsfile"
+          done < changed_js.txt
+
+      - name: Commit generated HTML files
+        if: steps.changed.outputs.has_changes == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          while IFS= read -r jsfile; do
+            [[ -z "$jsfile" ]] && continue
+            htmlfile="${jsfile%.js}.html"
+            [[ -f "$htmlfile" ]] && git add "$htmlfile"
+          done < changed_js.txt
+
+          if ! git diff --cached --quiet; then
+            git commit -m "auto: generate HTML for new JS files [skip ci]"
+            git push
+          else
+            echo "No HTML changes to commit"
+          fi
