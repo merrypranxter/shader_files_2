@@ -1,0 +1,1 @@
+function renderLoop(ctx, grid, time, repos, input,
