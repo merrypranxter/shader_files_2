@@ -1,0 +1,1 @@
+function render(ctx, grid, time, repos, input, mouse
