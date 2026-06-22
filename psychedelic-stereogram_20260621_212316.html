@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>psychedelic-stereogram_20260621_212316</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+canvas{position:fixed;inset:0;display:block;width:100%!important;height:100%!important}
+#hud{
+  position:fixed;top:12px;left:12px;z-index:9999;
+  background:rgba(0,0,0,0.82);border:1px solid #0ff;
+  border-radius:4px;color:#0ff;
+  font:12px/1.5 'Courier New',monospace;
+  padding:8px 10px;min-width:180px;
+  box-shadow:0 0 14px #0ff4;
+  user-select:none;
+}
+#hud-name{font-size:11px;color:#fff;margin-bottom:4px;letter-spacing:1px}
+#hud-status{font-size:10px;color:#0ff9;margin-bottom:6px;min-height:14px;word-break:break-word}
+#hud-btns{display:flex;gap:5px;flex-wrap:wrap}
+#hud-btns button{
+  background:none;border:1px solid #0ff6;color:#0ff;
+  font:11px 'Courier New',monospace;padding:2px 7px;
+  border-radius:2px;cursor:pointer;
+}
+#hud-btns button:hover{background:#0ff2;border-color:#0ff}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+<canvas id="art"></canvas>
+<div id="hud">
+  <div id="hud-name">psychedelic-stereogram_20260621_212316.js</div>
+  <div id="hud-status">loading…</div>
+  <div id="hud-btns">
+    <button id="btn-hide">Hide</button>
+    <button id="btn-save">Save PNG</button>
+    <button id="btn-reset">Reset</button>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+
+  // ── Globals ──────────────────────────────────────────────────────────────
+  const canvas = document.getElementById('art');
+  const grid   = { width: 0, height: 0 };
+  let   time   = 0;
+  const mouse  = { x: 0, y: 0, isPressed: false, pressed: false, down: false };
+  let   input  = '';
+  const THREE_GLOBAL = window.THREE || null;
+
+  // ── Canvas / context ─────────────────────────────────────────────────────
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const CTX_TYPE = 'webgl2';
+  let ctx = null;
+
+  function initContext() {
+    ctx = canvas.getContext(CTX_TYPE, { antialias: false, alpha: true });
+  }
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width  = Math.round(w * DPR);
+    canvas.height = Math.round(h * DPR);
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+    grid.width  = canvas.width;
+    grid.height = canvas.height;
+  }
+
+  initContext();
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── Mouse / Touch ─────────────────────────────────────────────────────────
+  function updateMouse(e) {
+    const r = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / r.width;
+    const scaleY = canvas.height / r.height;
+    const src = e.touches ? e.touches[0] : e;
+    mouse.x = (src.clientX - r.left) * scaleX;
+    mouse.y = (src.clientY - r.top)  * scaleY;
+  }
+  canvas.addEventListener('mousedown',  e => { updateMouse(e); mouse.isPressed = true; mouse.pressed = true; mouse.down = true; });
+  canvas.addEventListener('mousemove',  e => { updateMouse(e); });
+  canvas.addEventListener('mouseup',    ()=> { mouse.isPressed = false; mouse.pressed = false; mouse.down = false; });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); updateMouse(e); mouse.isPressed = true; mouse.pressed = true; mouse.down = true; }, {passive:false});
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); updateMouse(e); }, {passive:false});
+  canvas.addEventListener('touchend',   ()=> { mouse.isPressed = false; mouse.pressed = false; mouse.down = false; });
+
+  // ── Keyboard input ───────────────────────────────────────────────────────
+  window.addEventListener('keydown', e => {
+    if (e.key === 'H' || e.key === 'h') { removeHud(); return; }
+    if (e.key.length === 1) input += e.key;
+    else if (e.key === 'Backspace') input = input.slice(0, -1);
+  });
+
+  // ── HUD ──────────────────────────────────────────────────────────────────
+  const hud       = document.getElementById('hud');
+  const statusEl  = document.getElementById('hud-status');
+
+  function setStatus(msg) { if (statusEl) statusEl.textContent = msg; }
+  function removeHud()    { if (hud && hud.parentNode) hud.parentNode.removeChild(hud); }
+
+  document.getElementById('btn-hide').addEventListener('click', removeHud);
+
+  document.getElementById('btn-save').addEventListener('click', function() {
+    try {
+      const a = document.createElement('a');
+      a.href     = canvas.toDataURL('image/png');
+      a.download = 'psychedelic-stereogram_20260621_212316.png';
+      a.click();
+    } catch(e) { setStatus('save failed: ' + e.message); }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', resetSketch);
+
+  // ── Sketch source (base64) ────────────────────────────────────────────────
+  const _b64 = 'dHJ5IHsKICBpZiAoIWN0eCkgdGhyb3cgbmV3IEVycm9yKCJXZWJHTCAyIGNvbnRleHQgbm90IGF2YWlsYWJsZSIpOwoKICBpZiAoIWNhbnZhcy5fX3RocmVlKSB7CiAgICBjb25zdCByZW5kZXJlciA9IG5ldyBUSFJFRS5XZWJHTFJlbmRlcmVyKHsgY2FudmFzLCBjb250ZXh0OiBjdHgsIGFscGhhOiB0cnVlLCBhbnRpYWxpYXM6IHRydWUgfSk7CiAgICByZW5kZXJlci5hdXRvQ2xlYXIgPSBmYWxzZTsKCiAgICBjb25zdCBkZXB0aFRhcmdldCA9IG5ldyBUSFJFRS5XZWJHTFJlbmRlclRhcmdldChncmlkLndpZHRoLCBncmlkLmhlaWdodCwgewogICAgICBtaW5GaWx0ZXI6IFRIUkVFLkxpbmVhckZpbHRlciwKICAgICAgbWFnRmlsdGVyOiBUSFJFRS5MaW5lYXJGaWx0ZXIsCiAgICAgIGZvcm1hdDogVEhSRUUuUkdCQUZvcm1hdCwKICAgICAgdHlwZTogVEhSRUUuRmxvYXRUeXBlCiAgICB9KTsKCiAgICBjb25zdCBjYW1lcmEgPSBuZXcgVEhSRUUuT3J0aG9ncmFwaGljQ2FtZXJhKC0xLCAxLCAxLCAtMSwgMCwgMSk7CgogICAgY29uc3Qgc2hhcmVkVmVydGV4U2hhZGVyID0gYAogICAgICBvdXQgdmVjMiB2VXY7CiAgICAgIHZvaWQgbWFpbigpIHsKICAgICAgICB2VXYgPSB1djsKICAgICAgICBnbF9Qb3NpdGlvbiA9IHZlYzQocG9zaXRpb24sIDEuMCk7CiAgICAgIH0KICAgIGA7CgogICAgY29uc3QgZGVwdGhTY2VuZSA9IG5ldyBUSFJFRS5TY2VuZSgpOwogICAgY29uc3QgZGVwdGhNYXRlcmlhbCA9IG5ldyBUSFJFRS5TaGFkZXJNYXRlcmlhbCh7CiAgICAgIGdsc2xWZXJzaW9uOiBUSFJFRS5HTFNMMywKICAgICAgdW5pZm9ybXM6IHsKICAgICAgICB1X3RpbWU6IHsgdmFsdWU6IDAgfSwKICAgICAgICB1X3Jlc29sdXRpb246IHsgdmFsdWU6IG5ldyBUSFJFRS5WZWN0b3IyKGdyaWQud2lkdGgsIGdyaWQuaGVpZ2h0KSB9CiAgICAgIH0sCiAgICAgIHZlcnRleFNoYWRlcjogc2hhcmVkVmVydGV4U2hhZGVyLAogICAgICBmcmFnbWVudFNoYWRlcjogYAogICAgICAgIGluIHZlYzIgdlV2OwogICAgICAgIG91dCB2ZWM0IGZyYWdDb2xvcjsKICAgICAgICB1bmlmb3JtIHZlYzIgdV9yZXNvbHV0aW9uOwogICAgICAgIHVuaWZvcm0gZmxvYXQgdV90aW1lOwoKICAgICAgICBtYXQyIHJvdChmbG9hdCBhKSB7CiAgICAgICAgICAgIGZsb2F0IHMgPSBzaW4oYSksIGMgPSBjb3MoYSk7CiAgICAgICAgICAgIHJldHVybiBtYXQyKGMsIC1zLCBzLCBjKTsKICAgICAgICB9CgogICAgICAgIGZsb2F0IHNkSW1wb3NzaWJsZUtub3QodmVjMyBwKSB7CiAgICAgICAgICAgIHAueHkgKj0gcm90KHVfdGltZSAqIDAuMik7CiAgICAgICAgICAgIHAueHogKj0gcm90KHVfdGltZSAqIDAuMTUpOwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgciA9IGxlbmd0aChwLnh5KTsKICAgICAgICAgICAgZmxvYXQgYSA9IGF0YW4ocC55LCBwLngpOwogICAgICAgICAgICAKICAgICAgICAgICAgdmVjMiBxID0gdmVjMihyIC0gMC42NSwgcC56KTsKICAgICAgICAgICAgcSAqPSByb3QoYSAqIDMuMCArIHVfdGltZSAqIDAuOCk7CiAgICAgICAgICAgIAogICAgICAgICAgICBmbG9hdCBiYXNlVG9ydXMgPSBsZW5ndGgocSkgLSAwLjI1OwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgZ3lyb2lkID0gZG90KHNpbihwICogNS4wKSwgY29zKHAuenh5ICogNS4wKSk7CiAgICAgICAgICAgIGZsb2F0IGRldGFpbCA9IGRvdChzaW4ocCAqIDEyLjApLCBjb3MocC56eHkgKiAxMi4wKSk7CiAgICAgICAgICAgIAogICAgICAgICAgICBmbG9hdCBzaGFwZSA9IGJhc2VUb3J1cyArIGd5cm9pZCAqIDAuMDYgKyBkZXRhaWwgKiAwLjAxNTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IGNvcmUgPSBsZW5ndGgocCkgLSAwLjM1OwogICAgICAgICAgICBjb3JlICs9IGRvdChzaW4ocCAqIDguMCksIGNvcyhwLnp4eSAqIDguMCkpICogMC4wNDsKICAgICAgICAgICAgCiAgICAgICAgICAgIHJldHVybiBtaW4oc2hhcGUsIGNvcmUpICogMC42OwogICAgICAgIH0KCiAgICAgICAgdm9pZCBtYWluKCkgewogICAgICAgICAgICB2ZWMyIHV2ID0gKHZVdiAtIDAuNSkgKiAyLjA7CiAgICAgICAgICAgIHV2LnggKj0gdV9yZXNvbHV0aW9uLnggLyB1X3Jlc29sdXRpb24ueTsKICAgICAgICAgICAgCiAgICAgICAgICAgIHZlYzMgcm8gPSB2ZWMzKDAuMCwgMC4wLCAyLjgpOwogICAgICAgICAgICB2ZWMzIHJkID0gbm9ybWFsaXplKHZlYzModXYsIC0xLjApKTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IHQgPSAwLjA7CiAgICAgICAgICAgIGZsb2F0IHogPSAwLjA7CiAgICAgICAgICAgIAogICAgICAgICAgICBmb3IoaW50IGkgPSAwOyBpIDwgODA7IGkrKykgewogICAgICAgICAgICAgICAgdmVjMyBwID0gcm8gKyByZCAqIHQ7CiAgICAgICAgICAgICAgICBmbG9hdCBkID0gc2RJbXBvc3NpYmxlS25vdChwKTsKICAgICAgICAgICAgICAgIGlmKGQgPCAwLjAwMikgewogICAgICAgICAgICAgICAgICAgIHogPSBjbGFtcCgxLjAgLSAodCAtIDEuNSkgLyAyLjIsIDAuMSwgMC45NSk7CiAgICAgICAgICAgICAgICAgICAgYnJlYWs7CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB0ICs9IGQ7CiAgICAgICAgICAgICAgICBpZih0ID4gNC41KSBicmVhazsKICAgICAgICAgICAgfQogICAgICAgICAgICAKICAgICAgICAgICAgaWYgKHogPT0gMC4wKSB7CiAgICAgICAgICAgICAgICBmbG9hdCBiZ05vaXNlID0gZnJhY3Qoc2luKGRvdCh2VXYsIHZlYzIoMTIuOTg5OCwgNzguMjMzKSkpICogNDM3NTguNTQ1Myk7CiAgICAgICAgICAgICAgICB6ID0gMC4wMiArIGJnTm9pc2UgKiAwLjAzICsgKDEuMCAtIHZVdi55KSAqIDAuMDU7CiAgICAgICAgICAgIH0KICAgICAgICAgICAgCiAgICAgICAgICAgIGZyYWdDb2xvciA9IHZlYzQoeiwgeiwgeiwgMS4wKTsKICAgICAgICB9CiAgICAgIGAKICAgIH0pOwogICAgZGVwdGhTY2VuZS5hZGQobmV3IFRIUkVFLk1lc2gobmV3IFRIUkVFLlBsYW5lR2VvbWV0cnkoMiwgMiksIGRlcHRoTWF0ZXJpYWwpKTsKCiAgICBjb25zdCBzdGVyZW9TY2VuZSA9IG5ldyBUSFJFRS5TY2VuZSgpOwogICAgY29uc3Qgc3RlcmVvTWF0ZXJpYWwgPSBuZXcgVEhSRUUuU2hhZGVyTWF0ZXJpYWwoewogICAgICBnbHNsVmVyc2lvbjogVEhSRUUuR0xTTDMsCiAgICAgIHVuaWZvcm1zOiB7CiAgICAgICAgdV90aW1lOiB7IHZhbHVlOiAwIH0sCiAgICAgICAgdV9yZXNvbHV0aW9uOiB7IHZhbHVlOiBuZXcgVEhSRUUuVmVjdG9yMihncmlkLndpZHRoLCBncmlkLmhlaWdodCkgfSwKICAgICAgICB1X2RlcHRoVGV4OiB7IHZhbHVlOiBkZXB0aFRhcmdldC50ZXh0dXJlIH0sCiAgICAgICAgdV9FOiB7IHZhbHVlOiAxMjguMCB9LAogICAgICAgIHVfbXU6IHsgdmFsdWU6IDAuNTUgfQogICAgICB9LAogICAgICB2ZXJ0ZXhTaGFkZXI6IHNoYXJlZFZlcnRleFNoYWRlciwKICAgICAgZnJhZ21lbnRTaGFkZXI6IGAKICAgICAgICBpbiB2ZWMyIHZVdjsKICAgICAgICBvdXQgdmVjNCBmcmFnQ29sb3I7CiAgICAgICAgCiAgICAgICAgdW5pZm9ybSBzYW1wbGVyMkQgdV9kZXB0aFRleDsKICAgICAgICB1bmlmb3JtIHZlYzIgdV9yZXNvbHV0aW9uOwogICAgICAgIHVuaWZvcm0gZmxvYXQgdV90aW1lOwogICAgICAgIHVuaWZvcm0gZmxvYXQgdV9FOwogICAgICAgIHVuaWZvcm0gZmxvYXQgdV9tdTsKCiAgICAgICAgdmVjMyBoc3YycmdiKHZlYzMgYykgewogICAgICAgICAgICB2ZWM0IEsgPSB2ZWM0KDEuMCwgMi4wIC8gMy4wLCAxLjAgLyAzLjAsIDMuMCk7CiAgICAgICAgICAgIHZlYzMgcCA9IGFicyhmcmFjdChjLnh4eCArIEsueHl6KSAqIDYuMCAtIEsud3d3KTsKICAgICAgICAgICAgcmV0dXJuIGMueiAqIG1peChLLnh4eCwgY2xhbXAocCAtIEsueHh4LCAwLjAsIDEuMCksIGMueSk7CiAgICAgICAgfQoKICAgICAgICB2ZWMyIGhhc2gyMih2ZWMyIHApIHsKICAgICAgICAgICAgcCA9IHZlYzIoZG90KHAsIHZlYzIoMTI3LjEsIDMxMS43KSksIGRvdChwLCB2ZWMyKDI2OS41LCAxODMuMykpKTsKICAgICAgICAgICAgcmV0dXJuIGZyYWN0KHNpbihwKSAqIDQzNzU4LjU0NTMpOwogICAgICAgIH0KCiAgICAgICAgZmxvYXQgdm9yb25vaSh2ZWMyIHgpIHsKICAgICAgICAgICAgdmVjMiBuID0gZmxvb3IoeCk7CiAgICAgICAgICAgIHZlYzIgZiA9IGZyYWN0KHgpOwogICAgICAgICAgICBmbG9hdCBtZCA9IDguMDsKICAgICAgICAgICAgZm9yKGludCBqID0gLTE7IGogPD0gMTsgaisrKQogICAgICAgICAgICBmb3IoaW50IGkgPSAtMTsgaSA8PSAxOyBpKyspIHsKICAgICAgICAgICAgICAgIHZlYzIgZyA9IHZlYzIoZmxvYXQoaSksIGZsb2F0KGopKTsKICAgICAgICAgICAgICAgIHZlYzIgbyA9IGhhc2gyMihuICsgZyk7CiAgICAgICAgICAgICAgICBvID0gMC41ICsgMC41ICogc2luKHVfdGltZSAqIDIuMCArIDYuMjgzMTg1MyAqIG8pOwogICAgICAgICAgICAgICAgdmVjMiByID0gZyArIG8gLSBmOwogICAgICAgICAgICAgICAgZmxvYXQgZCA9IGRvdChyLCByKTsKICAgICAgICAgICAgICAgIGlmKGQgPCBtZCkgbWQgPSBkOwogICAgICAgICAgICB9CiAgICAgICAgICAgIHJldHVybiBzcXJ0KG1kKTsKICAgICAgICB9CgogICAgICAgIHZlYzMgYWNpZFdhbGxwYXBlcih2ZWMyIHV2KSB7CiAgICAgICAgICAgIHZlYzIgcCA9IHV2ICogNi4wOwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgbW9pcmUgPSBzaW4obGVuZ3RoKHV2ICogMTguMCkgKiAyNS4wIC0gdV90aW1lICogNC4wKSAqIGNvcyh1di54ICogMzUuMCArIHV2LnkgKiAyNS4wKTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IHYgPSB2b3Jvbm9pKHAgKiAyLjUpOwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgZ2xpdHRlciA9IGZyYWN0KHNpbihkb3QodXYsIHZlYzIoMTIuOTg5OCwgNzguMjMzKSkpICogNDM3NTguNTQ1Myk7CiAgICAgICAgICAgIAogICAgICAgICAgICBmbG9hdCBodWUgPSB1di54ICogMi41ICsgdXYueSAqIDEuNSAtIHYgKiAwLjYgKyB1X3RpbWUgKiAwLjM7CiAgICAgICAgICAgIHZlYzMgY29sID0gaHN2MnJnYih2ZWMzKGh1ZSwgMC44NSwgMS4wKSk7CiAgICAgICAgICAgIAogICAgICAgICAgICBmbG9hdCBibG9iID0gc21vb3Roc3RlcCgwLjQ1LCAwLjE1LCB2KTsKICAgICAgICAgICAgY29sID0gbWl4KGNvbCwgdmVjMygwLjYsIDEuMCwgMC4wKSwgYmxvYiAqIDAuODUpOyAKICAgICAgICAgICAgCiAgICAgICAgICAgIGNvbCArPSBtb2lyZSAqIDAuMzUgKiB2ZWMzKDEuMCwgMC4wLCAwLjgpOyAKICAgICAgICAgICAgCiAgICAgICAgICAgIHZlYzIgZnAgPSBmcmFjdChwICogMy4wKSAtIDAuNTsKICAgICAgICAgICAgZmxvYXQgZ2x5cGhTZWVkID0gZmxvb3IocC54ICogMy4wKSArIGZsb29yKHAueSAqIDMuMCkgKiAxMC4wOwogICAgICAgICAgICBmbG9hdCBnbHlwaCA9IHN0ZXAoMC43LCBmcmFjdChzaW4oZ2x5cGhTZWVkICsgZmxvb3IodV90aW1lKSkgKiAxMjMuNDUpKTsKICAgICAgICAgICAgZmxvYXQgc3ltYm9sID0gc21vb3Roc3RlcCgwLjE4LCAwLjEsIGFicyhtYXgoYWJzKGZwLngpLCBhYnMoZnAueSkpIC0gMC4yNSkpICogZ2x5cGg7CiAgICAgICAgICAgIGNvbCA9IG1peChjb2wsIHZlYzMoMC4wLCAxLjAsIDEuMCksIHN5bWJvbCk7IAogICAgICAgICAgICAKICAgICAgICAgICAgdmVjMyBub2lzZUNvbCA9IHZlYzMoCiAgICAgICAgICAgICAgICBmcmFjdChzaW4oZG90KHV2LCB2ZWMyKDEuMCwgMi4wKSkpICogNDM3NTguMCksCiAgICAgICAgICAgICAgICBmcmFjdChzaW4oZG90KHV2LCB2ZWMyKDMuMCwgNC4wKSkpICogNDM3NTguMCksCiAgICAgICAgICAgICAgICBmcmFjdChzaW4oZG90KHV2LCB2ZWMyKDUuMCwgNi4wKSkpICogNDM3NTguMCkKICAgICAgICAgICAgKTsKICAgICAgICAgICAgY29sID0gbWl4KGNvbCwgbm9pc2VDb2wsIDAuMzUpOyAKICAgICAgICAgICAgCiAgICAgICAgICAgIHJldHVybiBjbGFtcChjb2wsIDAuMCwgMS4wKTsKICAgICAgICB9CgogICAgICAgIHZvaWQgbWFpbigpIHsKICAgICAgICAgICAgZmxvYXQgRSA9IHVfRTsKICAgICAgICAgICAgZmxvYXQgbXUgPSB1X211OwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgeFBpeCA9IHZVdi54ICogdV9yZXNvbHV0aW9uLng7CiAgICAgICAgICAgIGZsb2F0IHlQaXggPSB2VXYueTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IHUgPSB4UGl4OwogICAgICAgICAgICAKICAgICAgICAgICAgZm9yIChpbnQgaSA9IDA7IGkgPCAxNjA7IGkrKykgewogICAgICAgICAgICAgICAgaWYgKHUgPCBFKSBicmVhazsKICAgICAgICAgICAgICAgIGZsb2F0IHNhbXBsZVggPSBjbGFtcCh1IC8gdV9yZXNvbHV0aW9uLngsIDAuMCwgMS4wKTsKICAgICAgICAgICAgICAgIGZsb2F0IHogPSB0ZXh0dXJlKHVfZGVwdGhUZXgsIHZlYzIoc2FtcGxlWCwgdlV2LnkpKS5yOwogICAgICAgICAgICAgICAgZmxvYXQgc2VwID0gRSAqICgxLjAgLSBtdSAqIHopIC8gKDIuMCAtIG11ICogeik7CiAgICAgICAgICAgICAgICBzZXAgPSBtYXgoc2VwLCAxLjApOwogICAgICAgICAgICAgICAgdSAtPSBzZXA7CiAgICAgICAgICAgIH0KICAgICAgICAgICAgCiAgICAgICAgICAgIHZlYzIgcGF0dGVyblVWID0gdmVjMih1IC8gRSwgdlV2LnkgKiAodV9yZXNvbHV0aW9uLnkgLyBFKSk7CiAgICAgICAgICAgIAogICAgICAgICAgICB2ZWMzIGNvbCA9IGFjaWRXYWxscGFwZXIocGF0dGVyblVWKTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IGN4ID0gdV9yZXNvbHV0aW9uLnggKiAwLjU7CiAgICAgICAgICAgIGZsb2F0IGN5ID0gdV9yZXNvbHV0aW9uLnkgKiAwLjkyOwogICAgICAgICAgICBmbG9hdCByID0gNy4wOwogICAgICAgICAgICAKICAgICAgICAgICAgZmxvYXQgZDEgPSBsZW5ndGgodmVjMih4UGl4LCB2VXYueSAqIHVfcmVzb2x1dGlvbi55KSAtIHZlYzIoY3ggLSBFICogMC41LCBjeSkpOwogICAgICAgICAgICBmbG9hdCBkMiA9IGxlbmd0aCh2ZWMyKHhQaXgsIHZVdi55ICogdV9yZXNvbHV0aW9uLnkpIC0gdmVjMihjeCArIEUgKiAwLjUsIGN5KSk7CiAgICAgICAgICAgIGZsb2F0IGRvdERpc3QgPSBtaW4oZDEsIGQyKTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZsb2F0IG1hc2sgPSBzbW9vdGhzdGVwKHIgKyAyLjAsIHIgLSAxLjAsIGRvdERpc3QpOwogICAgICAgICAgICBjb2wgPSBtaXgoY29sLCB2ZWMzKDAuMCksIG1hc2spOwogICAgICAgICAgICBmbG9hdCBjb3JlID0gc21vb3Roc3RlcChyICogMC40ICsgMS4wLCByICogMC40IC0gMS4wLCBkb3REaXN0KTsKICAgICAgICAgICAgY29sID0gbWl4KGNvbCwgdmVjMygxLjApLCBjb3JlKTsKICAgICAgICAgICAgCiAgICAgICAgICAgIGZyYWdDb2xvciA9IHZlYzQoY29sLCAxLjApOwogICAgICAgIH0KICAgICAgYAogICAgfSk7CiAgICBzdGVyZW9TY2VuZS5hZGQobmV3IFRIUkVFLk1lc2gobmV3IFRIUkVFLlBsYW5lR2VvbWV0cnkoMiwgMiksIHN0ZXJlb01hdGVyaWFsKSk7CgogICAgY2FudmFzLl9fdGhyZWUgPSB7IHJlbmRlcmVyLCBkZXB0aFRhcmdldCwgZGVwdGhTY2VuZSwgc3RlcmVvU2NlbmUsIGNhbWVyYSwgZGVwdGhNYXRlcmlhbCwgc3RlcmVvTWF0ZXJpYWwgfTsKICB9CgogIGNvbnN0IHsgcmVuZGVyZXIsIGRlcHRoVGFyZ2V0LCBkZXB0aFNjZW5lLCBzdGVyZW9TY2VuZSwgY2FtZXJhLCBkZXB0aE1hdGVyaWFsLCBzdGVyZW9NYXRlcmlhbCB9ID0gY2FudmFzLl9fdGhyZWU7CgogIGlmIChkZXB0aE1hdGVyaWFsICYmIGRlcHRoTWF0ZXJpYWwudW5pZm9ybXMgJiYgZGVwdGhNYXRlcmlhbC51bmlmb3Jtcy51X3RpbWUpIHsKICAgIGRlcHRoTWF0ZXJpYWwudW5pZm9ybXMudV90aW1lLnZhbHVlID0gdGltZTsKICAgIGRlcHRoTWF0ZXJpYWwudW5pZm9ybXMudV9yZXNvbHV0aW9uLnZhbHVlLnNldChncmlkLndpZHRoLCBncmlkLmhlaWdodCk7CiAgfQoKICBpZiAoc3RlcmVvTWF0ZXJpYWwgJiYgc3RlcmVvTWF0ZXJpYWwudW5pZm9ybXMgJiYgc3RlcmVvTWF0ZXJpYWwudW5pZm9ybXMudV90aW1lKSB7CiAgICBzdGVyZW9NYXRlcmlhbC51bmlmb3Jtcy51X3RpbWUudmFsdWUgPSB0aW1lOwogICAgc3RlcmVvTWF0ZXJpYWwudW5pZm9ybXMudV9yZXNvbHV0aW9uLnZhbHVlLnNldChncmlkLndpZHRoLCBncmlkLmhlaWdodCk7CiAgICBzdGVyZW9NYXRlcmlhbC51bmlmb3Jtcy51X0UudmFsdWUgPSBNYXRoLm1heCg4MC4wLCBNYXRoLm1pbigxODAuMCwgZ3JpZC53aWR0aCAvIDguMCkpOwogIH0KCiAgcmVuZGVyZXIuc2V0U2l6ZShncmlkLndpZHRoLCBncmlkLmhlaWdodCwgZmFsc2UpOwoKICByZW5kZXJlci5zZXRSZW5kZXJUYXJnZXQoZGVwdGhUYXJnZXQpOwogIHJlbmRlcmVyLnJlbmRlcihkZXB0aFNjZW5lLCBjYW1lcmEpOwoKICByZW5kZXJlci5zZXRSZW5kZXJUYXJnZXQobnVsbCk7CiAgcmVuZGVyZXIucmVuZGVyKHN0ZXJlb1NjZW5lLCBjYW1lcmEpOwoKfSBjYXRjaCAoZSkgewogIGNvbnNvbGUuZXJyb3IoIldlYkdMIEluaXRpYWxpemF0aW9uIG9yIFJlbmRlciBGYWlsZWQ6IiwgZSk7Cn0=';
+  const source = decodeURIComponent(escape(atob(_b64)));
+
+  // ── Compile sketch ────────────────────────────────────────────────────────
+  let sketchFn = null;
+  try {
+    sketchFn = new Function('canvas','ctx','grid','time','mouse','input','THREE', source + '\n');
+    setStatus('ok');
+  } catch(e) {
+    setStatus('compile error: ' + e.message);
+    console.error('[psychedelic-stereogram_20260621_212316] compile error:', e);
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  function resetSketch() {
+    try {
+      // Dispose Three.js renderer if present
+      if (canvas.__three) {
+        const t = canvas.__three;
+        if (t.renderer) { try { t.renderer.dispose(); } catch(_){} }
+        if (t.rtA)      { try { t.rtA.dispose(); }      catch(_){} }
+        if (t.rtB)      { try { t.rtB.dispose(); }      catch(_){} }
+        if (t.material) { try { t.material.dispose(); } catch(_){} }
+        delete canvas.__three;
+      }
+      // Clear any other custom state
+      for (const k of Object.keys(canvas)) {
+        if (k.startsWith('__')) { try { delete canvas[k]; } catch(_){} }
+      }
+      // Clear Canvas2D if applicable
+      if (CTX_TYPE === '2d' && ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      // Reset context after dispose
+      initContext();
+      startTime = performance.now();
+      setStatus('reset ok');
+    } catch(e) {
+      setStatus('reset error: ' + e.message);
+    }
+  }
+
+  // ── Animation loop ────────────────────────────────────────────────────────
+  let startTime = performance.now();
+
+  function frame() {
+    time = (performance.now() - startTime) / 1000;
+    mouse.pressed = false; // single-frame pulse reset
+    if (sketchFn) {
+      try {
+        sketchFn(canvas, ctx, grid, time, mouse, input, THREE_GLOBAL);
+      } catch(e) {
+        setStatus('runtime error: ' + e.message);
+        console.error('[psychedelic-stereogram_20260621_212316] runtime error:', e);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
